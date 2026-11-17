@@ -1,0 +1,56 @@
+# Publishes @taiga-ui/design-tokens to npm via trusted publishing (OIDC).
+#
+# The canonical source of this workflow is the design-tokens repository (angular/publisher directory).
+# On every release, the `push dist to github` job (angular/angular-ci.yml) copies it
+# into the publisher repo github.com/taiga-family/design-tokens-release together with a snapshot
+# of the built dist.
+#
+# Trigger: pushing a v<version> tag. The workflow is taken from the tagged commit, so it
+# must be present in the pushed commit.
+#
+# No secrets: npm exchanges the GitHub Actions OIDC token for a short-lived
+# publish token (requires npm >= 11.5.1, Node >= 22.14).
+name: Publish @taiga-ui/design-tokens
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Manual run for an OIDC smoke test on a test package.
+  workflow_dispatch:
+
+permissions:
+  id-token: write # OIDC exchange
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Optional hardening: a GitHub environment with a required reviewer,
+    # so every release needs manual approval.
+    # environment: npm
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing requires npm >= 11.5.1; install the 11.x line rather than v12
+      # (v12 defaults to allowScripts=off, which is a breaking change).
+      - name: Use npm 11.x
+        run: npm install -g npm@11
+
+      - name: Check tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION=$(node -p "require('./package/package.json').version")
+          if [ "v${VERSION}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package version ${VERSION}"
+            exit 1
+          fi
+
+      # Provenance attestations are generated automatically (public repo + public package).
+      - name: Publish
+        run: npm publish ./package --access public

@@ -13,9 +13,10 @@
 name: Publish @taiga-ui/design-tokens
 
 on:
-  push:
-    tags:
-      - 'v*'
+  # Temporarily disabled: the first release is verified and published manually via workflow_dispatch.
+  # push:
+  #   tags:
+  #     - 'v*'
   # Manual run for an OIDC smoke test on a test package.
   workflow_dispatch:
 
